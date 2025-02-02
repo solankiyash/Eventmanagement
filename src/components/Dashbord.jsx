@@ -49,7 +49,7 @@ const Dashboard = () => {
 
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/events/getevent",
+          `${import.meta.env.VITE_API_URL}/api/events/getevent`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -71,7 +71,7 @@ const Dashboard = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/events/create",
+        `${import.meta.env.VITE_API_URL}/api/events/create`,
         eventData,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -95,7 +95,7 @@ const Dashboard = () => {
     if (!token) return;
 
     try {
-      await axios.delete(`http://localhost:5000/api/events/${id}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/api/events/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setEvents(events.filter((event) => event._id !== id));
@@ -123,7 +123,7 @@ const Dashboard = () => {
 
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/events/${editEventId}`,
+        `${import.meta.env.VITE_API_URL}/api/events/${editEventId}`,
         updatedEvent,
         {
           headers: { Authorization: `Bearer ${token}` },
