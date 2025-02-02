@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
-  Container,
-  Paper,
   TableBody,
   Typography,
   Button,
@@ -17,8 +15,19 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Box,
+  Stack,
+  IconButton,
+  Card,
+  CardContent,
+  InputAdornment,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import LogoutIcon from "@mui/icons-material/Logout";
+import AddIcon from "@mui/icons-material/Add";
+import SearchIcon from "@mui/icons-material/Search";
 
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
@@ -33,6 +42,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const email = localStorage.getItem("email");
+  const [formErrors, setFormErrors] = useState({
+    name: "",
+    description: "",
+    date: "",
+  });
+  const [touched, setTouched] = useState({
+    name: false,
+    description: false,
+    date: false,
+  });
 
   useEffect(() => {
     if (!token) {
@@ -63,8 +82,108 @@ const Dashboard = () => {
     fetchEvents();
   }, [token]);
 
-  // Handle form submission to create a new event
+  const validateField = (name, value) => {
+    switch (name) {
+      case "name":
+        if (!value.trim()) return "Event name is required";
+        if (value.length < 3) return "Event name must be at least 3 characters";
+        return "";
+      case "description":
+        if (!value.trim()) return "Description is required";
+        if (value.length < 10)
+          return "Description must be at least 10 characters";
+        return "";
+      case "date":
+        if (!value) return "Date is required";
+        const selectedDate = new Date(value);
+        const now = new Date();
+        if (selectedDate < now) return "Date cannot be in the past";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  const handleFieldChange = (e) => {
+    const { name, value } = e.target;
+
+    // Update field value
+    switch (name) {
+      case "name":
+        setName(value);
+        break;
+      case "description":
+        setDescription(value);
+        break;
+      case "date":
+        setDate(value);
+        break;
+    }
+
+    // Validate if touched
+    if (touched[name]) {
+      setFormErrors((prev) => ({
+        ...prev,
+        [name]: validateField(name, value),
+      }));
+    }
+  };
+
+  const handleBlur = (field) => {
+    setTouched((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+
+    let value;
+    switch (field) {
+      case "name":
+        value = name;
+        break;
+      case "description":
+        value = description;
+        break;
+      case "date":
+        value = date;
+        break;
+    }
+
+    setFormErrors((prev) => ({
+      ...prev,
+      [field]: validateField(field, value),
+    }));
+  };
+
+  const isFormValid = () => {
+    const errors = {
+      name: validateField("name", name),
+      description: validateField("description", description),
+      date: validateField("date", date),
+    };
+    return !Object.values(errors).some((error) => error !== "");
+  };
+
   const handleCreate = async () => {
+    // Set all fields as touched
+    setTouched({
+      name: true,
+      description: true,
+      date: true,
+    });
+
+    // Validate all fields
+    const errors = {
+      name: validateField("name", name),
+      description: validateField("description", description),
+      date: validateField("date", date),
+    };
+
+    setFormErrors(errors);
+
+    if (Object.values(errors).some((error) => error !== "")) {
+      return;
+    }
+
     const eventData = { name, description, date };
 
     if (!token) return;
@@ -81,10 +200,23 @@ const Dashboard = () => {
       setName("");
       setDescription("");
       setDate("");
+      setTouched({
+        name: false,
+        description: false,
+        date: false,
+      });
+      setFormErrors({
+        name: "",
+        description: "",
+        date: "",
+      });
       setSnackbarMessage("Event created successfully!");
       setOpenSnackbar(true);
     } catch (error) {
-      console.error("Error creating event:", error.response.data);
+      setSnackbarMessage(
+        error.response?.data?.message || "Error creating event"
+      );
+      setOpenSnackbar(true);
     }
   };
 
@@ -111,7 +243,10 @@ const Dashboard = () => {
     setEditEventId(event._id);
     setName(event.name);
     setDescription(event.description);
-    setDate(event.date);
+    // Format the date to match datetime-local input format
+    const eventDate = new Date(event.date);
+    const formattedDate = eventDate.toISOString().slice(0, 16);
+    setDate(formattedDate);
     setOpenDialog(true);
   };
 
@@ -151,67 +286,141 @@ const Dashboard = () => {
   };
 
   return (
-    <Container>
-      <Typography variant="h4">Event Dashboard </Typography>
-      <span style={{ display: "flex", justifyContent: "end" }}>
-        <Button onClick={handleLogout} color="error">
-          Logout
-        </Button>
-      </span>
-      <p style={{ textAlign: "end" }}>{email.slice(0, 5)}</p>
-      {/* for search input */}
-      <TextField
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        label="Search Events"
-        fullWidth
-        margin="normal"
-      />
-
-      {/* Create Event Form */}
-      <Typography variant="h5" style={{ marginTop: "20px" }}>
-        Create Event
-      </Typography>
-      <TextField
-        label="Event Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-      <TextField
-        label="Event Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-      <TextField
-        label="Event Date"
-        type="datetime-local"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        fullWidth
-        margin="normal"
-        InputLabelProps={{ shrink: true }}
-      />
-      <Button
-        onClick={handleCreate}
-        variant="contained"
-        color="primary"
-        style={{ marginTop: "20px" }}
+    <Box sx={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
+      {/* Header Section */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 4,
+        }}
       >
-        Create Event
-      </Button>
+        <Typography variant="h4" sx={{ fontWeight: 300 }}>
+          Events
+        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="body2" color="text.secondary">
+            {email}
+          </Typography>
+          <IconButton onClick={handleLogout} color="error" size="small">
+            <LogoutIcon />
+          </IconButton>
+        </Stack>
+      </Box>
 
-      <TableContainer component={Paper} style={{ marginTop: "30px" }}>
+      {/* Search and Create Section */}
+      <Card sx={{ mb: 4, backgroundColor: "#f8f9fa" }}>
+        <CardContent>
+          <Stack spacing={3}>
+            <Box sx={{ mb: 4 }}>
+              <TextField
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search events..."
+                variant="outlined"
+                fullWidth
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: "text.secondary" }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    borderRadius: "12px",
+                    backgroundColor: "white",
+                    "&:hover": {
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#1976d2",
+                      },
+                    },
+                    "&.Mui-focused": {
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#1976d2",
+                      },
+                    },
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                  },
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "rgba(0, 0, 0, 0.1)",
+                    },
+                  },
+                  maxWidth: "600px",
+                  margin: "0 auto",
+                }}
+              />
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              <TextField
+                label="Event Name"
+                name="name"
+                value={name}
+                onChange={handleFieldChange}
+                onBlur={() => handleBlur("name")}
+                error={touched.name && !!formErrors.name}
+                helperText={touched.name && formErrors.name}
+                size="small"
+                sx={{ flex: 1, minWidth: "200px", backgroundColor: "white" }}
+              />
+              <TextField
+                label="Event Description"
+                name="description"
+                value={description}
+                onChange={handleFieldChange}
+                onBlur={() => handleBlur("description")}
+                error={touched.description && !!formErrors.description}
+                helperText={touched.description && formErrors.description}
+                size="small"
+                sx={{ flex: 2, minWidth: "200px", backgroundColor: "white" }}
+              />
+              <TextField
+                label="Event Date"
+                name="date"
+                type="datetime-local"
+                value={date}
+                onChange={handleFieldChange}
+                onBlur={() => handleBlur("date")}
+                error={touched.date && !!formErrors.date}
+                helperText={touched.date && formErrors.date}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ flex: 1, minWidth: "200px", backgroundColor: "white" }}
+              />
+              <Button
+                onClick={handleCreate}
+                variant="contained"
+                startIcon={<AddIcon />}
+                disabled={!isFormValid()}
+                sx={{
+                  height: "40px",
+                  backgroundColor: "#2196f3",
+                  "&:hover": { backgroundColor: "#1976d2" },
+                  "&.Mui-disabled": {
+                    backgroundColor: "#ccc",
+                  },
+                }}
+              >
+                Create
+              </Button>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Events Table */}
+      <TableContainer component={Card} sx={{ boxShadow: 2 }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Event Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Event Name</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Date</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -219,8 +428,10 @@ const Dashboard = () => {
               event.name.toLowerCase().includes(search.toLowerCase())
             ).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center">
-                  No Data Found
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  <Typography color="text.secondary">
+                    No events found
+                  </Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -229,28 +440,27 @@ const Dashboard = () => {
                   event.name.toLowerCase().includes(search.toLowerCase())
                 )
                 .map((event) => (
-                  <TableRow key={event._id}>
+                  <TableRow key={event._id} hover>
                     <TableCell>{event.name}</TableCell>
                     <TableCell>{event.description}</TableCell>
                     <TableCell>
                       {new Date(event.date).toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outlined"
+                      <IconButton
+                        size="small"
                         color="primary"
                         onClick={() => handleEditClick(event)}
                       >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="secondary"
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
                         onClick={() => handleDelete(event._id)}
-                        style={{ marginLeft: "10px" }}
                       >
-                        Delete
-                      </Button>
+                        <DeleteIcon />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))
@@ -259,39 +469,53 @@ const Dashboard = () => {
         </Table>
       </TableContainer>
 
-      {/* model open for edit */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>Edit Event</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Event Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
-          <TextField
-            label="Event Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
-          <TextField
-            label="Event Date"
-            type="datetime-local"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-          />
+      {/* Edit Dialog */}
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        PaperProps={{
+          sx: { borderRadius: 2 },
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: "divider" }}>
+          Edit Event
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Stack spacing={2}>
+            <TextField
+              label="Event Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Event Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Event Date"
+              type="datetime-local"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)} color="secondary">
+        <DialogActions sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
+          <Button
+            onClick={() => setOpenDialog(false)}
+            color="inherit"
+            variant="outlined"
+          >
             Cancel
           </Button>
-          <Button onClick={handleUpdate} color="primary">
+          <Button onClick={handleUpdate} variant="contained">
             Update
           </Button>
         </DialogActions>
@@ -303,7 +527,7 @@ const Dashboard = () => {
         onClose={() => setOpenSnackbar(false)}
         message={snackbarMessage}
       />
-    </Container>
+    </Box>
   );
 };
 

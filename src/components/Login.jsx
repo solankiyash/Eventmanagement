@@ -1,5 +1,5 @@
 // pages/LoginPage.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   TextField,
@@ -14,21 +14,134 @@ import { Link, useNavigate } from "react-router-dom";
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+  });
+  const [touched, setTouched] = useState({
+    email: false,
+    password: false,
+  });
   const navigate = useNavigate();
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      return "Email is required";
+    }
+    if (!emailRegex.test(email)) {
+      return "Please enter a valid email address";
+    }
+    return "";
+  };
+
+  const validatePassword = (password) => {
+    if (!password) {
+      return "Password is required";
+    }
+    if (password.length < 4) {
+      return "Password must be at least 4 characters long";
+    }
+    return "";
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (touched.email) {
+      setErrors((prev) => ({
+        ...prev,
+        email: validateEmail(value),
+      }));
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    if (touched.password) {
+      setErrors((prev) => ({
+        ...prev,
+        password: validatePassword(value),
+      }));
+    }
+  };
+
+  const handleBlur = (field) => {
+    setTouched((prev) => ({
+      ...prev,
+      [field]: true,
+    }));
+    if (field === "email") {
+      setErrors((prev) => ({
+        ...prev,
+        email: validateEmail(email),
+      }));
+    } else if (field === "password") {
+      setErrors((prev) => ({
+        ...prev,
+        password: validatePassword(password),
+      }));
+    }
+  };
+
+  const isFormValid = () => {
+    return (
+      !errors.email &&
+      !errors.password &&
+      email.length > 0 &&
+      password.length > 0
+    );
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Set all fields as touched
+    setTouched({
+      email: true,
+      password: true,
+    });
+
+    // Validate all fields
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+
+    setErrors({
+      email: emailError,
+      password: passwordError,
+    });
+
+    if (emailError || passwordError) {
+      return;
+    }
+
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/auth/login`,
-        { email, password }
+        {
+          email,
+          password,
+        }
       );
 
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("email", response.data.user.email);
-      navigate("/dashboard");
-    } catch (err) {
-      console.error(err);
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("email", response.data.user.email);
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        setErrors((prev) => ({
+          ...prev,
+          password: "Invalid email or password",
+        }));
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          email: "An error occurred. Please try again.",
+        }));
+      }
     }
   };
 
@@ -148,7 +261,10 @@ const LoginPage = () => {
               label="Email"
               fullWidth
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
+              onBlur={() => handleBlur("email")}
+              error={touched.email && !!errors.email}
+              helperText={touched.email && errors.email}
               required
               margin="normal"
               variant="outlined"
@@ -168,7 +284,10 @@ const LoginPage = () => {
               type="password"
               fullWidth
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
+              onBlur={() => handleBlur("password")}
+              error={touched.password && !!errors.password}
+              helperText={touched.password && errors.password}
               required
               margin="normal"
               variant="outlined"
@@ -187,6 +306,7 @@ const LoginPage = () => {
               type="submit"
               variant="contained"
               fullWidth
+              disabled={!isFormValid()}
               sx={{
                 py: 1.5,
                 borderRadius: 2,
@@ -197,6 +317,9 @@ const LoginPage = () => {
                 "&:hover": {
                   backgroundColor: "#1565c0",
                   boxShadow: "0 6px 20px rgba(25,118,210,0.25)",
+                },
+                "&.Mui-disabled": {
+                  backgroundColor: "#ccc",
                 },
                 transition: "all 0.3s ease",
               }}
